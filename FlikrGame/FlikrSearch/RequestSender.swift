@@ -26,30 +26,41 @@ class RequestSender {
         let defaultSession = URLSession(configuration: .default)
         let task = defaultSession.dataTask(with: request) { (responseData, urlResponse, error) in
             
+            guard error == nil else {
+                failure((error?.localizedDescription ?? "Something went wrong."))
+                return
+            }
             
-            if let data = responseData {
-                do {
-                    if let jsonData = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.mutableContainers) as? [String:Any?],
-                        let photos = jsonData["photos"] as? [String:Any?],
-                        let photoList = photos["photo"] as? Array<[String:Any?]> {
-                        
-                        print("httpMethod: - \(photoList)")
-                        succes(FlikrHandler.parser(jsonData: photoList))
-                        
-                    } else {
-                        failure((error?.localizedDescription)!)
-                    }
-                    
-                } catch {
-                    failure((error.localizedDescription))
-                }
+            if let httpResponse = urlResponse as? HTTPURLResponse,
+                httpResponse.statusCode == 200,
+                let data = responseData,
+                let photoList = convertToJSONObject(data: data) {
+                
+                succes(FlikrHandler.parser(jsonData: photoList))
             } else {
-                failure((error?.localizedDescription)!)
+                failure((error?.localizedDescription ?? "Something went wrong."))
             }
         }
         
         task.resume()
     }
+    
+    class func convertToJSONObject(data: Data) -> Array<[String:Any?]>? {
+        do {
+            if let jsonData = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions.mutableContainers) as? [String:Any?],
+                let photos = jsonData["photos"] as? [String:Any?],
+                let photoList = photos["photo"] as? Array<[String:Any?]> {
+                
+                return photoList
+                
+            } else {
+                return nil
+            }
+        } catch {
+            return nil
+        }
+    }
+    
 }
 
 class FlikrRequest {
